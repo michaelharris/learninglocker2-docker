@@ -1,6 +1,7 @@
 # Learning Locker version 2 in Docker
 
 It is a dockerized version of Learning Locker (LL) version 2 based on the installation guides at http://docs.learninglocker.net/guides-custom-installation/
+This fork is to support easy spin up with nginx-letsencrypt-companion containers
 
 ## Architecture
 
@@ -61,11 +62,12 @@ To create a new user and organisation for the site:
 docker-compose exec api node cli/dist/server createSiteAdmin [email] [organisation] [password]
 ```
 
-## Production usage
+## Production usage 1
 
 ### Deployment
 
 Preparing a remote machine for the first time, put .env file to the machine and adjust the settings as given above.
+Note - a resolvable domain name needs to be included for letsencrypt certificate use.
 
 To deploy a new version (git commit) to the machine, 
 set DOCKER_TAG in .env to the git commit (SHA-1),
@@ -92,6 +94,52 @@ Mount cert files to nginx container adding a section in docker-compose.yml:
 ### Backups
 
 Backup $DATA_LOCATION, i.e. the Docker volumes: Mongo's data and app's storage. 
+
+## Production usage letsencrypt
+
+### Deployment
+
+Preparing a remote machine for the first time, put .env file to the machine and adjust the settings as given above.
+
+To deploy a new version (git commit) to the machine, 
+set DOCKER_TAG in .env to the git commit (SHA-1),
+copy docker-compose.yml of the git commit to the machine 
+(see the SSL/TLS notice below),
+and just call the command:
+
+```
+docker-compose -f docker-compose-letsencrypt.yml up -d
+```
+
+Then one can run the assistive containers - from here https://github.com/nginx-proxy/docker-letsencrypt-nginx-proxy-companion
+Ensure the command puts these on the same network
+
+```
+docker run --detach \
+    --name nginx-proxy \
+    --publish 80:80 \
+    --publish 443:443 \
+    --volume /etc/nginx/certs \
+    --volume /etc/nginx/vhost.d \
+    --volume /usr/share/nginx/html \
+    --volume /var/run/docker.sock:/tmp/docker.sock:ro \
+    --network=learninglocker2docker_default \
+    jwilder/nginx-proxy
+
+
+```
+
+
+```
+
+docker run --detach \
+    --name nginx-proxy-letsencrypt \
+    --volumes-from nginx-proxy \
+    --volume /var/run/docker.sock:/var/run/docker.sock:ro \
+    --network=learninglocker2docker_default \
+    jrcs/letsencrypt-nginx-proxy-companion
+
+```
 
 ## Upgrading
 
